@@ -32,4 +32,4 @@ if __name__ == "__main__":
     address = 'C44F5830-8359-25F6-C6C8-D392D1E6B89A'
     connector = BluetoothConnector(address)
     connector.connect()
-    connector.disconnect()
+    # connector.disconnect()

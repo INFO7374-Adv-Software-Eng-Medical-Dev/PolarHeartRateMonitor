@@ -18,7 +18,7 @@ class BluetoothScanner:
              device_info = str(device).split(": ")
              device_address = device_info[0]
              device_name = device_info[1]
-             if device_name != None:
+             if device_name != None or device_name != "None":
                     self.devices.update({device_name: device_address})
              else: 
                  pass
