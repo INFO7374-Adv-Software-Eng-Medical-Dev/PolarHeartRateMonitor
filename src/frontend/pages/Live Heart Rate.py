@@ -3,6 +3,7 @@ from utils.background import add_background
 import time
 import random
 import pandas as pd
+from utils.data_streamer import DataStreamer
 
 st.set_page_config(page_title="Live Heart Rate Monitor", layout="wide")
 
