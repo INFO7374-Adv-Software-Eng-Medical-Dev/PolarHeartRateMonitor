@@ -2,6 +2,8 @@ import asyncio
 from bleak import BleakClient
 import numpy as np
 import time 
+from collections import deque
+import sqlite3
 
 class DataStreamer:
     def __init__(self, address):
@@ -51,10 +53,27 @@ class DataStreamer:
             ibi = np.ceil(ibi / 1024 * 1000)  
             self.ibi_queue_values.append(np.array([ibi]))
             self.ibi_queue_times.append(np.array([time.time_ns()/1.0e9]))
+        print(hr)
+        self.store_data(hr, ibi)
 
-        print(f"Heart Rate: {hr}")
+    #Store the data in the database with timestamp
+    def store_data(self, hr, ibi):
+        conn = sqlite3.connect('data_buffer.db')
+        c = conn.cursor()
+        #Create the table if it does not exist
+        c.execute('''CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, hr REAL, ibi REAL, timestamp REAL)''')
+        c.execute("INSERT INTO data (hr, ibi, timestamp) VALUES (?, ?, ?)", (hr, ibi, time.time_ns()/1.0e9))
+        #Remove the 120th element from the database if the buffer is full
+        # c.execute("DELETE FROM data WHERE id IN (SELECT id FROM data ORDER BY id ASC LIMIT 1)")
+        conn.commit()
+        conn.close()
+            
+    def stop_stream(self):
+        self.client.disconnect()
+            
+
 
 if __name__ == "__main__":
     address = 'C44F5830-8359-25F6-C6C8-D392D1E6B89A'
-    data_streamer = DataStreamer(address)
-    data_streamer.stream_data()
+    streamer = DataStreamer(address)
+    streamer.stream_data()

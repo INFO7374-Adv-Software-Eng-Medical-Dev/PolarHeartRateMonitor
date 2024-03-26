@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "polar-heartrate-monitor-backend"
+version = "0.1.0"
+description = ""
+authors = ["Midhun Mohan <mohan.ku@northeastern.edu>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+fastapi = "^0.110.0"
+bleak = "^0.21.1"
+numpy = "^1.26.4"
+uvicorn = "^0.29.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
