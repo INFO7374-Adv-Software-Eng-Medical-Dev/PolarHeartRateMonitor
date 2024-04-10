@@ -5,17 +5,91 @@ import random
 import pandas as pd
 from utils.data_streamer import DataStreamer
 import sqlite3
+import asyncio
+import subprocess
+import os
+
 
 st.set_page_config(page_title="Live Heart Rate Monitor", layout="wide")
-
+streamer = DataStreamer(st.session_state.get("selected_device_address"))
 #Connect to the database
 # '''CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, hr REAL, ibi REAL, timestamp REAL)'''
 
-def fetch_live_heart_rate():
-    # This function simulates fetching live heart rate data.
-    conn = sqlite3.connect('/Users/mohan/Projects/PolarHeartRateMonitor/data_buffer.db')
+# Function to select patients from the database
+def select_patients():
+    conn = sqlite3.connect('data/patients.db')
     c = conn.cursor()
+    result = c.execute('''SELECT * FROM patients''')
+    patients = result.fetchall()
+    conn.close()
+    
+    return patients
+
+#Function to fetch live heart rate data for the selected patient and add button to start and stop the stream
+def main():
+    # Check if a device address is in session state
+    if st.session_state.get("selected_device_address") is None:
+        st.warning("Please select a device to continue")
+    else:
+        # Initialize a dataframe to store the data
+        data = pd.DataFrame({
+            'Patient': [],
+            'Time': [],
+            'Heart Rate': []
+        })
+
+        patients = select_patients()
+        if len(patients) == 0:
+            st.write("No patients found. Please add a patient to continue")
+        else:
+            # Add a title to the page
+            st.title("Live Heart Rate Monitor")
+
+            # Select a patient from the list of patients and add a button to start the stream
+            patient = st.selectbox("Select a patient", ["Select a patient"] + [patient[1] for patient in patients], index=0, key="selected_patient")
+            if patient != "Select a patient":
+                st.write(f"Selected Patient: {patient}")
+
+                # Call live_data when the "Start Stream" button is clicked
+                if st.button("Start Stream", key="start"):
+                    live_data(patient, data)  # Pass the selected patient and data DataFrame
+
+                if st.button("Stop Stream", key="stop"):
+                    streamer.stop = True
+                    streamer.stop_stream() 
+                            
+
+#Store patient data in the database
+def store_data(data: pd.DataFrame):
+    conn = sqlite3.connect('data/heart_rate_data.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS hr_data (name TEXT, hr REAL, timestamp REAL)''')
+    for i in range(data.shape[0]):
+        c.execute("INSERT INTO hr_data (name, hr, timestamp) VALUES (?, ?, ?)", (data.iloc[i, 0], data.iloc[i, 1], data.iloc[i, 2]))
+    conn.commit()
+    conn.close()
+
+
+def fetch_live_heart_rate():
+    # create a connection to the database or create a new one if it does not exist
+
+    conn = sqlite3.connect('data/data_buffer.db')
+    c = conn.cursor()
+    execute = c.execute('''CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, hr REAL, ibi REAL, timestamp REAL)''')
     result = c.execute('''SELECT hr, timestamp FROM data ORDER BY id DESC LIMIT 1''')
+    tries = 0
+    max_tries = 20
+    while result is None:
+        # Wait for 1 second if no data is found
+        time.sleep(1)
+        result = c.execute('''SELECT hr, timestamp FROM data ORDER BY id DESC LIMIT 1''')
+        if result.fetchone() is None:
+            tries += 1
+        else:
+            break
+        if tries == max_tries:
+            st.error("No data found. Please check the device connection")
+            st.stop()
     rate, timestamp = result.fetchone()
     #Differece between the current time and the timestamp
     diff = time.time() - timestamp
@@ -29,39 +103,59 @@ def fetch_live_heart_rate():
 
 add_background()
 
-# Create a placeholder for the metric and the graph
+def live_data(patient, data):
 
-heart_rate_metric, heart_rate_zone, latency = st.empty(), st.empty(), st.empty()
+    # Create a placeholder for the metric and the graph
 
-# Initialize a dataframe to store the data
-data = pd.DataFrame({
-    'Time': [],
-    'Heart Rate': []
-})
+    heart_rate_metric, heart_rate_zone, latency = st.empty(), st.empty(), st.empty()
+    # streamer = DataStreamer(st.session_state.get("selected_device_address"))
+    #Run streamer.start_stream() as a subprocess
+    stream_process = subprocess.Popen(["python", "/Users/mohan/Projects/PolarHeartRateMonitor/src/frontend/utils/data_streamer.py", st.session_state.get("selected_device_address")])
 
-# Create a line chart with an empty dataframe
-chart = st.line_chart(data)
+    if st.button("Stop Stream", key="stop"):
+        stream_process.terminate()
+        
+        # streamer.stop_stream()
+        # store_data(data)
+        # os.remove('data/data_buffer.db')
+        # st.stop()
 
-while True:
-    # Fetch the latest heart rate data
-    latest_heart_rate, zone, live_latency = fetch_live_heart_rate()
-    
-    #Convert heart_rate_metric and heart_rate_zone to columns
-    
-    heart_rate_metric.metric(label="Heart Rate", value=f"{latest_heart_rate} bpm")
-    heart_rate_zone.metric(label="Heart Rate Zone", value=f"{zone}", delta_color="inverse")
-    latency.metric(label="Latency", value=f"{live_latency:.2f} seconds", delta_color="inverse")
+    # Add a button to stop the stream
+
+    # Create a line chart with an empty dataframe
+    chart = st.line_chart(data)
+
+    while True:
+        # Fetch the latest heart rate data
+        latest_heart_rate, zone, live_latency = fetch_live_heart_rate()
+        
+        #Convert heart_rate_metric and heart_rate_zone to columns
+        
+        heart_rate_metric.metric(label="Heart Rate", value=f"{latest_heart_rate} bpm")
+        heart_rate_zone.metric(label="Heart Rate Zone", value=f"{zone}", delta_color="inverse")
+        latency.metric(label="Latency", value=f"{live_latency:.2f} seconds", delta_color="inverse")
+        
+
+        # Update the dataframe with the new data point
+        new_data = pd.DataFrame({
+            'Patient': [patient],
+            'Time': [data.shape[0]],  # Assuming each update is 1 second apart
+            'Heart Rate': [latest_heart_rate]
+        })
+        data = pd.concat([data, new_data], ignore_index=True).tail(300)  # Keep only the last 300 data points
+        
+        # Update the line chart
+        chart.line_chart(data[['Time', 'Heart Rate']].set_index('Time'), color="#FF0000", width=0, use_container_width=True)
+
+        
+        # Wait for a short period before fetching new data
+        time.sleep(1)  # Adjust the sleep time as needed based on your data source's update frequency
+
+
+
     
 
-    # Update the dataframe with the new data point
-    new_data = pd.DataFrame({
-        'Time': [data.shape[0]],  # Assuming each update is 1 second apart
-        'Heart Rate': [latest_heart_rate]
-    })
-    data = pd.concat([data, new_data], ignore_index=True).tail(300)  # Keep only the last 300 data points
-    
-    # Update the line chart
-    chart.line_chart(data.set_index('Time'), color="#FF0000", width=0, use_container_width=True)
-    
-    # Wait for a short period before fetching new data
-    time.sleep(1)  # Adjust the sleep time as needed based on your data source's update frequency
+
+
+if __name__ == "__main__":
+    main()

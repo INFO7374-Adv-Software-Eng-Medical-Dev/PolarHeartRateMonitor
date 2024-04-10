@@ -4,6 +4,8 @@ import numpy as np
 import time 
 from collections import deque
 import sqlite3
+import os
+import streamlit as st
 
 class DataStreamer:
     def __init__(self, address):
@@ -11,6 +13,7 @@ class DataStreamer:
         self.client = BleakClient(address)
         self.ibi_queue_values = []  # Initialize IBI values queue
         self.ibi_queue_times = []   # Initialize IBI timestamps queue
+        self.stop = False
     
     async def notification_handler(self, sender, data: bytearray):
         self.hr_data_conv(sender, data)
@@ -18,8 +21,14 @@ class DataStreamer:
     async def subscribe_to_data(self):
         async with self.client as client:
             await client.start_notify("00002a37-0000-1000-8000-00805f9b34fb", self.notification_handler)
-            await asyncio.sleep(200)  
+            # Await the signal to stop the stream
+            while not self.stop:
+                await asyncio.sleep(1)
             await client.stop_notify("00002a37-0000-1000-8000-00805f9b34fb")
+
+            #Delete the database if the stop signal is received
+            os.remove('data/data_buffer.db')
+                
         
     def stream_data(self):
         loop = asyncio.get_event_loop()
@@ -58,7 +67,8 @@ class DataStreamer:
 
     #Store the data in the database with timestamp
     def store_data(self, hr, ibi):
-        conn = sqlite3.connect('data_buffer.db')
+        # Create a buffer to store the data
+        conn = sqlite3.connect('data/data_buffer.db')
         c = conn.cursor()
         #Create the table if it does not exist
         c.execute('''CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, hr REAL, ibi REAL, timestamp REAL)''')
@@ -67,13 +77,30 @@ class DataStreamer:
         # c.execute("DELETE FROM data WHERE id IN (SELECT id FROM data ORDER BY id ASC LIMIT 1)")
         conn.commit()
         conn.close()
+
+    async def start_stream(self):
+        self._stream_task = asyncio.create_task(self.subscribe_to_data())
+        try:
+            await self._stream_task
+        except asyncio.CancelledError:
+            pass
             
-    def stop_stream(self):
-        self.client.disconnect()
-            
+    async def stop_stream(self):
+        await self.client.disconnect() 
+
+def main(address):
+    streamer = DataStreamer(address)
+    streamer.stream_data()
+
+
+
+
+
 
 
 if __name__ == "__main__":
-    address = 'C44F5830-8359-25F6-C6C8-D392D1E6B89A'
-    streamer = DataStreamer(address)
-    streamer.stream_data()
+    import sys
+    if len(sys.argv) >= 2:
+        address = sys.argv[1]
+        main(address)
+
