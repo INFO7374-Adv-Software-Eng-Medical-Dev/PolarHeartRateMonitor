@@ -1,3 +1,4 @@
 src/bluetooth_interface/.venv
 .env
 *.venv
+data

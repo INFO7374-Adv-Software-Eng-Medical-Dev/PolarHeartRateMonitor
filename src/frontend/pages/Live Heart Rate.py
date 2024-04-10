@@ -8,7 +8,7 @@ import sqlite3
 import asyncio
 import subprocess
 import os
-
+import signal
 
 st.set_page_config(page_title="Live Heart Rate Monitor", layout="wide")
 streamer = DataStreamer(st.session_state.get("selected_device_address"))
@@ -104,16 +104,20 @@ def fetch_live_heart_rate():
 add_background()
 
 def live_data(patient, data):
-
+    run = True
     # Create a placeholder for the metric and the graph
 
     heart_rate_metric, heart_rate_zone, latency = st.empty(), st.empty(), st.empty()
     # streamer = DataStreamer(st.session_state.get("selected_device_address"))
     #Run streamer.start_stream() as a subprocess
     stream_process = subprocess.Popen(["python", "/Users/mohan/Projects/PolarHeartRateMonitor/src/frontend/utils/data_streamer.py", st.session_state.get("selected_device_address")])
+    st.write(stream_process.pid)
 
     if st.button("Stop Stream", key="stop"):
-        stream_process.terminate()
+        if stream_process:  # Ensure the process exists
+            os.kill(stream_process.pid, signal.SIGINT)  # Send SIGINT (Ctrl+C like)
+            # stream_process = None
+            run = False
         
         # streamer.stop_stream()
         # store_data(data)
@@ -125,7 +129,7 @@ def live_data(patient, data):
     # Create a line chart with an empty dataframe
     chart = st.line_chart(data)
 
-    while True:
+    while run:
         # Fetch the latest heart rate data
         latest_heart_rate, zone, live_latency = fetch_live_heart_rate()
         

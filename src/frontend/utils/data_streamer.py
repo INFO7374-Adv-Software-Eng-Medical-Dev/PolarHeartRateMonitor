@@ -6,6 +6,7 @@ from collections import deque
 import sqlite3
 import os
 import streamlit as st
+import signal
 
 class DataStreamer:
     def __init__(self, address):
@@ -19,17 +20,29 @@ class DataStreamer:
         self.hr_data_conv(sender, data)
 
     async def subscribe_to_data(self):
+
         async with self.client as client:
             await client.start_notify("00002a37-0000-1000-8000-00805f9b34fb", self.notification_handler)
             # Await the signal to stop the stream
             while not self.stop:
-                await asyncio.sleep(1)
-            await client.stop_notify("00002a37-0000-1000-8000-00805f9b34fb")
+                break
 
             #Delete the database if the stop signal is received
             os.remove('data/data_buffer.db')
+        # except asyncio.CancelledError:
+        #     pass  
+        # finally:  # Ensure cleanup
+        #     await client.stop_notify("00002a37-0000-1000-8000-00805f9b34fb")
+        #     os.remove('data/data_buffer.db')
                 
-        
+    # async def unsubscribe(self):
+    #     async with self.client as client:
+    #         await client.stop_notify("00002a37-0000-1000-8000-00805f9b34fb")
+
+    def stop_stream(self):
+        # break the process
+        self.stop = True
+
     def stream_data(self):
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(self.subscribe_to_data())
@@ -85,8 +98,8 @@ class DataStreamer:
         except asyncio.CancelledError:
             pass
             
-    async def stop_stream(self):
-        await self.client.disconnect() 
+    # async def stop_stream(self):
+    #     await self.client.disconnect() 
 
 def main(address):
     streamer = DataStreamer(address)
@@ -94,13 +107,17 @@ def main(address):
 
 
 
-
-
-
+def stop_handler(signum, frame):  # Function to handle stop signals
+    streamer.stop_stream()
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) >= 2:
         address = sys.argv[1]
+        streamer = DataStreamer(address)  # Instantiate the DataStreamer
         main(address)
+
+        # Register signal handlers for termination
+        signal.signal(signal.SIGINT, stop_handler)  # Handle Ctrl+C
+        signal.signal(signal.SIGTERM, stop_handler)  # Handle other termination signals
 
