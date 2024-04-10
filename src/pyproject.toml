@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Midhun Mohan <mohan.ku@northeastern.edu>,Vikash Singh <vikash.singh@northeastern.edu>"]
 readme = "README.md"
+packages = [ { include = "frontend" } ]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
@@ -53,8 +54,20 @@ typing-extensions = "4.10.0"
 tzdata = "2024.1"
 urllib3 = "2.2.1"
 
-
+[tool.poetry.dev-dependencies]
+pytest = "^7.4"
+pytest-cov = "^4.1.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+source = ["frontend.utils"] 
+omit = ["frontend/utils/__init__.py", "frontend/utils/background.py"]
+
+[tool.pytest.ini_options]
+addopts = "-vv --cov=config --cov-fail-under=100 --cov-report term --cov-report html"
+testpaths = [
+    "tests",
+]
