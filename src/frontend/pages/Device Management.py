@@ -21,13 +21,13 @@ def main():
                 st.write("No devices found")
             else:
                 # Use the on_change parameter to update the session state when a new device is selected
-                selected_device = st.selectbox("Devices", ["Select a device"] + list_devices, index=0, key="selected_device", on_change=set_session_state, args=(devices_dict, ))
+                selected_device = st.selectbox("Devices", ["Select a device"] + list_devices, index=0, key="selected_device", on_change=connect, args=(devices_dict, ))
         #Exit the function after the scan is complete
         return 
 
                 
 
-def set_session_state(devices_dict):
+def connect(devices_dict):
     #Wait for 2 seconds to ensure the session state is updated
     with st.spinner("Connecting..."):
         time.sleep(1)
