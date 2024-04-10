@@ -25,10 +25,11 @@ class DataStreamer:
             await client.start_notify("00002a37-0000-1000-8000-00805f9b34fb", self.notification_handler)
             # Await the signal to stop the stream
             while not self.stop:
-                break
+                await asyncio.sleep(1)
+            await client.stop_notify("00002a37-0000-1000-8000-00805f9b34fb")
 
             #Delete the database if the stop signal is received
-            os.remove('data/data_buffer.db')
+            # os.remove('data/data_buffer.db')
         # except asyncio.CancelledError:
         #     pass  
         # finally:  # Ensure cleanup
@@ -98,8 +99,8 @@ class DataStreamer:
         except asyncio.CancelledError:
             pass
             
-    # async def stop_stream(self):
-    #     await self.client.disconnect() 
+    async def stop_stream(self):
+        await self.client.disconnect() 
 
 def main(address):
     streamer = DataStreamer(address)
@@ -120,4 +121,6 @@ if __name__ == "__main__":
         # Register signal handlers for termination
         signal.signal(signal.SIGINT, stop_handler)  # Handle Ctrl+C
         signal.signal(signal.SIGTERM, stop_handler)  # Handle other termination signals
+
+
 

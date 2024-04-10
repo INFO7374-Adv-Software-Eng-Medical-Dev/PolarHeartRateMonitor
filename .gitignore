@@ -2,3 +2,6 @@ src/bluetooth_interface/.venv
 .env
 *.venv
 data
+src/poetry.lock
+src/.coverage
+src/poetry.lock

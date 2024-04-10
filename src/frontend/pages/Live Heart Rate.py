@@ -9,9 +9,12 @@ import asyncio
 import subprocess
 import os
 import signal
+import uuid
 
 st.set_page_config(page_title="Live Heart Rate Monitor", layout="wide")
 streamer = DataStreamer(st.session_state.get("selected_device_address"))
+start_time = None
+end_time = None
 #Connect to the database
 # '''CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, hr REAL, ibi REAL, timestamp REAL)'''
 
@@ -46,8 +49,9 @@ def main():
             st.title("Live Heart Rate Monitor")
 
             # Select a patient from the list of patients and add a button to start the stream
-            patient = st.selectbox("Select a patient", ["Select a patient"] + [patient[1] for patient in patients], index=0, key="selected_patient")
+            patient = st.selectbox("Select a patient", ["Select a patient"] + [patient[1] for patient in patients], index=0, key="selected_patient_live")
             if patient != "Select a patient":
+                # st.session_state["selected_patient_live"] = patient
                 st.write(f"Selected Patient: {patient}")
 
                 # Call live_data when the "Start Stream" button is clicked
@@ -60,17 +64,17 @@ def main():
                             
 
 #Store patient data in the database
-def store_data(data: pd.DataFrame):
+def store_data(data: dict):
     conn = sqlite3.connect('data/heart_rate_data.db')
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS hr_data (name TEXT, hr REAL, timestamp REAL)''')
-    for i in range(data.shape[0]):
-        c.execute("INSERT INTO hr_data (name, hr, timestamp) VALUES (?, ?, ?)", (data.iloc[i, 0], data.iloc[i, 1], data.iloc[i, 2]))
+    # create table with name, heart rate, timestamp and session_id
+    c.execute('''CREATE TABLE IF NOT EXISTS hr_data (id INTEGER PRIMARY KEY, name TEXT, hr REAL, timestamp REAL, session_id TEXT)''')
+    c.execute("INSERT INTO hr_data (name, hr, timestamp, session_id) VALUES (?, ?, ?, ?)", (data["name"], data["hr"], data["timestamp"], str(data['session_id'])))
     conn.commit()
     conn.close()
 
 
-def fetch_live_heart_rate():
+def fetch_live_heart_rate(patient, session_id):
     # create a connection to the database or create a new one if it does not exist
 
     conn = sqlite3.connect('data/data_buffer.db')
@@ -86,7 +90,7 @@ def fetch_live_heart_rate():
         if result.fetchone() is None:
             tries += 1
         else:
-            break
+            pass
         if tries == max_tries:
             st.error("No data found. Please check the device connection")
             st.stop()
@@ -99,14 +103,17 @@ def fetch_live_heart_rate():
         zone = "Cardio"
     else:
         zone = "Peak"
+    values = {"name": patient, "hr": rate, "timestamp": time.time(), "session_id": session_id}
+    store_data(values)
     return rate, zone, diff
+
 
 add_background()
 
 def live_data(patient, data):
     run = True
     # Create a placeholder for the metric and the graph
-
+    session_id = uuid.uuid4()
     heart_rate_metric, heart_rate_zone, latency = st.empty(), st.empty(), st.empty()
     # streamer = DataStreamer(st.session_state.get("selected_device_address"))
     #Run streamer.start_stream() as a subprocess
@@ -121,7 +128,7 @@ def live_data(patient, data):
         
         # streamer.stop_stream()
         # store_data(data)
-        # os.remove('data/data_buffer.db')
+        os.remove('data/data_buffer.db')
         # st.stop()
 
     # Add a button to stop the stream
@@ -131,7 +138,8 @@ def live_data(patient, data):
 
     while run:
         # Fetch the latest heart rate data
-        latest_heart_rate, zone, live_latency = fetch_live_heart_rate()
+        latest_heart_rate, zone, live_latency = fetch_live_heart_rate(patient, session_id)
+
         
         #Convert heart_rate_metric and heart_rate_zone to columns
         
