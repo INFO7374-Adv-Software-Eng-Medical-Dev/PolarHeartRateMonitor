@@ -14,22 +14,20 @@ def create_patients_table():
     conn.commit()
     conn.close()
 
-#Streamlit page to add/ edit/ delete patients into the sqlite database
-def main():
-    #Add a title to the page
-    st.title("Patient Management")
-    st.selectbox("Select an option", ["Make a selection","Add Patient", "Edit Patient", "Delete Patient", "View Patients"], index=0, key="options", on_change=display_page)
+# #Streamlit page to add/ edit/ delete patients into the sqlite database
+# def main():
+#     #Add a title to the page
+#     st.title("Patient Management")
+#     st.selectbox("Select an option", ["Make a selection","Add Patient", "Edit Patient", "Delete Patient", "View Patients"], index=0, key="options", on_change=display_page)
 
-def display_page():
-    options = st.session_state.get("options")
-    if options == "Add Patient":
-        add_patient()
-    elif options == "Edit Patient":
-        edit_patient()
-    elif options == "Delete Patient":
-        delete_patient()
-    elif options == "View Patients":
-        view_patients()
+# def display_page():
+#     options = st.session_state.get("options")
+#     if options == "Add Patient":
+#         add_patient()
+#     elif options == "Delete Patient":
+#         delete_patient()
+#     elif options == "View Patients":
+#         view_patients()
 
 
 # Function to add a new patient with basic data validation
@@ -43,53 +41,54 @@ def add_patient():
         weight = st.number_input("Weight (kg)", min_value=0.0)
 
         if st.form_submit_button("Submit"):
-            try:
-                conn = sqlite3.connect('data/patients.db')
-                c = conn.cursor()
-                c.execute('''INSERT INTO patients (name, age, height, weight) 
-                             VALUES (?, ?, ?, ?)''', (name, age, height, weight))
-                conn.commit()
-                st.success("Patient added successfully")
-            except sqlite3.Error as e:
-                st.error(f"Error adding patient: {e}")
-            finally:
-                conn.close()
-
-def edit_patient():
-    st.title("Edit Patient")
-
-    with st.form(key="edit_patient"):
-        conn = sqlite3.connect('data/patients.db')
-        c = conn.cursor()
-
-        result = c.execute('''SELECT * FROM patients''')
-        patients = result.fetchall()
-        patient_names = [patient[1] for patient in patients]
-        selected_patient = st.selectbox("Select a patient", ["Select a patient"] + patient_names, index=0)
-
-        if selected_patient != "Select a patient":
-            patient_id = patients[patient_names.index(selected_patient)][0]  # Fetch patient ID
-            st.hidden("patient_id", value=patient_id)  # Hidden field for ID 
-            patient = patients[patient_names.index(selected_patient)]
-
-            name = st.text_input("Name", value=patient[1])
-            age = st.number_input("Age", value=patient[2])
-            height = st.number_input("Height", value=patient[3])
-            weight = st.number_input("Weight", value=patient[4])
-
-            if st.form_submit_button("Submit"):
+            with st.spinner("Adding patient..."):
                 try:
-                    c.execute('''
-                        UPDATE patients 
-                        SET name = ?, age = ?, height = ?, weight = ? 
-                        WHERE id = ?
-                    ''', (name, age, height, weight, patient_id)) 
+                    conn = sqlite3.connect('data/patients.db')
+                    c = conn.cursor()
+                    c.execute('''INSERT INTO patients (name, age, height, weight) 
+                                VALUES (?, ?, ?, ?)''', (name, age, height, weight))
                     conn.commit()
-                    st.success("Patient updated successfully")
+                    st.success("Patient added successfully")
                 except sqlite3.Error as e:
-                    st.error(f"Error updating patient: {e}")
+                    st.error(f"Error adding patient: {e}")
                 finally:
                     conn.close()
+
+# def edit_patient():
+#     st.title("Edit Patient")
+
+#     with st.form(key="edit_patient"):
+#         conn = sqlite3.connect('data/patients.db')
+#         c = conn.cursor()
+
+#         result = c.execute('''SELECT * FROM patients''')
+#         patients = result.fetchall()
+#         patient_names = [patient[1] for patient in patients]
+#         selected_patient = st.selectbox("Select a patient", ["Select a patient"] + patient_names, index=0)
+
+#         if selected_patient != "Select a patient":
+#             patient_id = patients[patient_names.index(selected_patient)][0]  # Fetch patient ID
+#             st.hidden("patient_id", value=patient_id)  # Hidden field for ID 
+#             patient = patients[patient_names.index(selected_patient)]
+
+#             name = st.text_input("Name", value=patient[1])
+#             age = st.number_input("Age", value=patient[2])
+#             height = st.number_input("Height", value=patient[3])
+#             weight = st.number_input("Weight", value=patient[4])
+
+#             if st.form_submit_button("Submit"):
+#                 try:
+#                     c.execute('''
+#                         UPDATE patients 
+#                         SET name = ?, age = ?, height = ?, weight = ? 
+#                         WHERE id = ?
+#                     ''', (name, age, height, weight, patient_id)) 
+#                     conn.commit()
+#                     st.success("Patient updated successfully")
+#                 except sqlite3.Error as e:
+#                     st.error(f"Error updating patient: {e}")
+#                 finally:
+#                     conn.close()
 
 def delete_patient():
     st.title("Delete Patient")
@@ -136,4 +135,6 @@ def view_patients():
             st.write("No patients found")
 
 if __name__ == "__main__":
-    main()
+    add_patient()
+    delete_patient()
+    view_patients()
