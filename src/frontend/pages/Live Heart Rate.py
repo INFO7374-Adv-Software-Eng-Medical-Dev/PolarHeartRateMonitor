@@ -12,6 +12,8 @@ import signal
 import uuid
 
 st.set_page_config(page_title="Live Heart Rate Monitor", layout="wide")
+add_background()
+
 streamer = DataStreamer(st.session_state.get("selected_device_address"))
 start_time = None
 end_time = None
@@ -82,7 +84,7 @@ def fetch_live_heart_rate(patient, session_id):
     execute = c.execute('''CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, hr REAL, ibi REAL, timestamp REAL)''')
     result = c.execute('''SELECT hr, timestamp FROM data ORDER BY id DESC LIMIT 1''')
     tries = 0
-    max_tries = 20
+    max_tries = 10
     while result is None:
         # Wait for 1 second if no data is found
         time.sleep(1)
@@ -108,7 +110,7 @@ def fetch_live_heart_rate(patient, session_id):
     return rate, zone, diff
 
 
-add_background()
+
 
 def live_data(patient, data):
     run = True
@@ -125,10 +127,11 @@ def live_data(patient, data):
             os.kill(stream_process.pid, signal.SIGINT)  # Send SIGINT (Ctrl+C like)
             # stream_process = None
             run = False
+            os.remove('data/data_buffer.db')
         
         # streamer.stop_stream()
         # store_data(data)
-        os.remove('data/data_buffer.db')
+       
         # st.stop()
 
     # Add a button to stop the stream
@@ -140,28 +143,37 @@ def live_data(patient, data):
         # Fetch the latest heart rate data
         latest_heart_rate, zone, live_latency = fetch_live_heart_rate(patient, session_id)
 
-        
-        #Convert heart_rate_metric and heart_rate_zone to columns
-        
-        heart_rate_metric.metric(label="Heart Rate", value=f"{latest_heart_rate} bpm")
-        heart_rate_zone.metric(label="Heart Rate Zone", value=f"{zone}", delta_color="inverse")
-        latency.metric(label="Latency", value=f"{live_latency:.2f} seconds", delta_color="inverse")
-        
+        if live_latency < 10:
 
-        # Update the dataframe with the new data point
-        new_data = pd.DataFrame({
-            'Patient': [patient],
-            'Time': [data.shape[0]],  # Assuming each update is 1 second apart
-            'Heart Rate': [latest_heart_rate]
-        })
-        data = pd.concat([data, new_data], ignore_index=True).tail(300)  # Keep only the last 300 data points
-        
-        # Update the line chart
-        chart.line_chart(data[['Time', 'Heart Rate']].set_index('Time'), color="#FF0000", width=0, use_container_width=True)
+            if latest_heart_rate  > 0 or latest_heart_rate < 220:
+                
+                #Convert heart_rate_metric and heart_rate_zone to columns
+                
+                heart_rate_metric.metric(label="Heart Rate", value=f"{latest_heart_rate} bpm")
+                heart_rate_zone.metric(label="Heart Rate Zone", value=f"{zone}", delta_color="inverse")
+                latency.metric(label="Latency", value=f"{live_latency:.2f} seconds", delta_color="inverse")
+                
 
-        
-        # Wait for a short period before fetching new data
-        time.sleep(1)  # Adjust the sleep time as needed based on your data source's update frequency
+                # Update the dataframe with the new data point
+                new_data = pd.DataFrame({
+                    'Patient': [patient],
+                    'Time': [data.shape[0]],  # Assuming each update is 1 second apart
+                    'Heart Rate': [latest_heart_rate]
+                })
+                data = pd.concat([data, new_data], ignore_index=True).tail(300)  # Keep only the last 300 data points
+                
+                # Update the line chart
+                chart.line_chart(data[['Time', 'Heart Rate']].set_index('Time'), color="#FF0000", width=0, use_container_width=True)
+
+                
+                # Wait for a short period before fetching new data
+                time.sleep(1)  # Adjust the sleep time as needed based on your data source's update frequency
+            else:
+                st.error("Recalibration Warning: Data is invalid for a live human. Please reconnect the device")
+        else:
+            st.error("Data latency is too high. Please check the device connection")
+            st.stop()
+
 
 
 

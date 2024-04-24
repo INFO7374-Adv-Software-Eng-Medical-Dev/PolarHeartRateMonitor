@@ -76,7 +76,7 @@ class DataStreamer:
             ibi = np.ceil(ibi / 1024 * 1000)  
             self.ibi_queue_values.append(np.array([ibi]))
             self.ibi_queue_times.append(np.array([time.time_ns()/1.0e9]))
-        print(hr)
+        # print(hr)
         self.store_data(hr, ibi)
 
     #Store the data in the database with timestamp

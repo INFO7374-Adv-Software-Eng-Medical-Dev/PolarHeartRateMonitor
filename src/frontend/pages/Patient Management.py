@@ -36,9 +36,9 @@ def add_patient():
     st.title("Add Patient")
     with st.form(key="add_patient"):
         name = st.text_input("Name")
-        age = st.number_input("Age", min_value=0)
-        height = st.number_input("Height (cm)", min_value=0.0)
-        weight = st.number_input("Weight (kg)", min_value=0.0)
+        age = st.number_input("Age", min_value=0, max_value=150)
+        height = st.number_input("Height (cm)", min_value=0.0, max_value=300.0)
+        weight = st.number_input("Weight (kg)", min_value=0.0, max_value=400.0)
 
         if st.form_submit_button("Submit"):
             with st.spinner("Adding patient..."):
@@ -54,41 +54,6 @@ def add_patient():
                 finally:
                     conn.close()
 
-# def edit_patient():
-#     st.title("Edit Patient")
-
-#     with st.form(key="edit_patient"):
-#         conn = sqlite3.connect('data/patients.db')
-#         c = conn.cursor()
-
-#         result = c.execute('''SELECT * FROM patients''')
-#         patients = result.fetchall()
-#         patient_names = [patient[1] for patient in patients]
-#         selected_patient = st.selectbox("Select a patient", ["Select a patient"] + patient_names, index=0)
-
-#         if selected_patient != "Select a patient":
-#             patient_id = patients[patient_names.index(selected_patient)][0]  # Fetch patient ID
-#             st.hidden("patient_id", value=patient_id)  # Hidden field for ID 
-#             patient = patients[patient_names.index(selected_patient)]
-
-#             name = st.text_input("Name", value=patient[1])
-#             age = st.number_input("Age", value=patient[2])
-#             height = st.number_input("Height", value=patient[3])
-#             weight = st.number_input("Weight", value=patient[4])
-
-#             if st.form_submit_button("Submit"):
-#                 try:
-#                     c.execute('''
-#                         UPDATE patients 
-#                         SET name = ?, age = ?, height = ?, weight = ? 
-#                         WHERE id = ?
-#                     ''', (name, age, height, weight, patient_id)) 
-#                     conn.commit()
-#                     st.success("Patient updated successfully")
-#                 except sqlite3.Error as e:
-#                     st.error(f"Error updating patient: {e}")
-#                 finally:
-#                     conn.close()
 
 def delete_patient():
     st.title("Delete Patient")
@@ -130,7 +95,7 @@ def view_patients():
             # Convert the list of patients to a pandas dataframe
             patients = pd.DataFrame(patients, columns=["ID", "Name", "Age", "Height", "Weight"])
             #Display the list of patients
-            st.table(patients)
+            st.write(patients)
         except:
             st.write("No patients found")
 

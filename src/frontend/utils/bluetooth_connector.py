@@ -11,6 +11,8 @@ def connect(devices_dict):
         st.session_state["selected_device_address"] = devices_dict[selected_device]
         st.session_state["selected_device_name"] = selected_device  
 
+    
+
 #Disconnect from the selected device
 def disconnect():
     st.session_state["selected_device_address"] = None

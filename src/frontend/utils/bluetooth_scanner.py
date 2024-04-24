@@ -34,12 +34,6 @@ class BluetoothScanner:
         This function clears the dictionary of devices.
         """
         self.devices = {}
-    
-    def print_devices(self):
-        """
-        This function prints the dictionary of devices.
-        """
-        print(self.devices)
         
 
     def discover_devices(self):
